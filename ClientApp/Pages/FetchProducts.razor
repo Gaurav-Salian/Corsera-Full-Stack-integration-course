@@ -1,0 +1,92 @@
+@page "/fetchproducts"
+@using System.Text.Json
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<h3>Product List</h3>
+
+@if (products != null)
+{
+    <ul>
+        @foreach (var p in products)
+        {
+            <li>
+                <strong>@p.Name</strong> - $@p.Price 
+                <em>(@p.Stock in stock)</em> 
+                <span class="badge bg-secondary">@p.Category.Name</span>
+            </li>
+        }
+    </ul>
+    <button class="btn btn-sm btn-outline-primary" @onclick="Refresh">Refresh</button>
+}
+else if (errorMessage != null)
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+else
+{
+    <p><em>Loading products...</em></p>
+}
+
+@code {
+    private Product[]? products;
+    private string? errorMessage;
+    private DateTime lastFetch = DateTime.MinValue;
+    private readonly TimeSpan clientCacheDuration = TimeSpan.FromSeconds(30);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts()
+    {
+        // Client-side debounce: avoid calling API too frequently
+        if (DateTime.UtcNow - lastFetch < clientCacheDuration && products != null)
+            return;
+
+        try
+        {
+            var response = await Http.GetAsync("/api/productlist");
+            response.EnsureSuccessStatusCode();
+            var json = await response.Content.ReadAsStringAsync();
+
+            products = JsonSerializer.Deserialize<Product[]>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            lastFetch = DateTime.UtcNow;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+        errorMessage = $"Failed to load products: {ex.Message}";
+        }
+    }
+
+    private async Task Refresh()
+    {
+        products = null;
+        errorMessage = null;
+        await LoadProducts();
+    }
+
+    // Copilot suggested this client-side debounce to prevent API spam
+    // Especially useful during development or rapid navigation
+
+    public class Product
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public double Price { get; set; }
+        public int Stock { get; set; }
+        public Category Category { get; set; } = null!;
+    }
+
+    public class Category
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+}
