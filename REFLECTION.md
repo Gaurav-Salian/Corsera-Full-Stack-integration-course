@@ -35,7 +35,7 @@
 
 ---
 
-## Key Learnings
+## Key Learnings.
 
 1. **Copilot excels at pattern recognition** – give it context, get production-ready code.
 2. **Always verify generated code** – especially CORS order and JSON casing.
